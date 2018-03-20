@@ -73,7 +73,7 @@ public class planettest : MonoBehaviour {
 	public GameObject player;
 	
 	GameObject[,] groundGrid;
-	
+	Mesh[,] meshGrid;
 	
 	
 	public Vector3 playerRelativeToPlanetPosition;
@@ -95,7 +95,22 @@ public class planettest : MonoBehaviour {
 			Varray[i] = MeshGenerator.SQRspherized(mvert[i]+offset )-offset;//project on sphere
 		}
 		this.terrain.vertices = Varray;}
-
+		
+	void Offsetgrid(){
+		for (int i = 0; i< this.groundGrid.Length;i++){
+			int ax = i%groundsize;
+			int ay = i/groundsize;
+			
+			Vector3 offset = this.groundGrid[ax,ay].transform.position - this.gameObject.transform.position;
+			Debug.Log( this.gameObject.transform.position );
+			
+			Vector3[] Varray = new Vector3[this.meshGrid[ax,ay].vertices.Length];//temp array to iterate
+			Vector3[] mvert = this.meshGrid[ax,ay].vertices;					;//temp vertice array to read
+			for (int iv = 0; this.meshGrid[ax,ay].vertices.Length > iv; iv++){			//loop all vertices
+				Varray[iv] = MeshGenerator.SQRspherized(mvert[iv]+offset )-offset;//project on sphere
+			}
+			this.meshGrid[ax,ay].vertices = Varray;}} 
+		
 	void FindSurfacePosition(){
 		this.terrainPosition = HashSpherePosition(playerSurfacePosition);
 		this.terrainFacing = MeshGenerator.findCubeFace(this.terrainPosition);		
@@ -114,15 +129,27 @@ public class planettest : MonoBehaviour {
 		for (int i = 0; i<groundsize*groundsize  ;i++){
 			int ax = i%groundsize;
 			int ay = i/groundsize;
-			this.groundGrid[ay,ax] = Instantiate(this.terrainTile);}}
+			this.groundGrid[ay,ax] = Instantiate(this.terrainTile);
+		}}
 			
 	void updatetile(){
+		for (int i = 0; i< this.groundGrid.Length;i++){
+			int ax = i%groundsize;
+			int ay = i/groundsize;
+			
+			Vector3[] tc = this.meshGrid[ax,ay].vertices;											//cache the vertices of terrain
+			for (int itc = 0; tc.Length > itc ;itc++){										//loop the cache
+				tc[itc] = MeshGenerator.UpdateData(this.terrainFacing,this.Tcache.v[itc]);	//using tcache update the plane
+			}
+			this.meshGrid[ax,ay].vertices = tc;}}
+			
+	void updateGrid(){
 		Vector3[] tc = this.terrain.vertices;											//cache the vertices of terrain
 		for (int itc = 0; tc.Length > itc ;itc++){										//loop the cache
 			tc[itc] = MeshGenerator.UpdateData(this.terrainFacing,this.Tcache.v[itc]);	//using tcache update the plane
 		}
 		this.terrain.vertices = tc;}
-
+		
 	void generateTilemesh(){
 		//mesh --> note: generate tcache first, use tcache to create tri and uv, reuse data for each tile
 		this.Tcache = MeshGenerator.CreateTerrainCache(true,this.tilesize,this.hashes*2);						//create a cache of plane position
@@ -130,8 +157,8 @@ public class planettest : MonoBehaviour {
 		for (int  i = 0 ; i< this.groundGrid.Length;i++){
 			int ax = i%groundsize;
 			int ay = i/groundsize;
-			this.groundGrid[ax,ay].gameObject.GetComponent<MeshFilter> ().mesh =  MeshGenerator.createPlane(Vector3.zero,true, this.terrainFacing,this.tilesize,this.hashes*2);}
-	}
+			this.meshGrid[ax,ay] = MeshGenerator.createPlane(Vector3.zero,true, this.terrainFacing,this.tilesize,this.hashes*2);
+			this.groundGrid[ax,ay].gameObject.GetComponent<MeshFilter> ().mesh =  this.meshGrid[ax,ay];}	}
 	
 	//_____________________________________________________________________________
 	void CreateProxyPlanet(){
@@ -157,8 +184,8 @@ public class planettest : MonoBehaviour {
 		FindSurfacePosition();
 		updateTerrainPosition();
 		//mesh
-		updatetile();//use tcache
-		OffsetTile();															//to sphere
+		updatetile();	updateGrid();//use tcache
+		OffsetTile();	Offsetgrid();														//to sphere
 		this.terrainTile.GetComponent<MeshFilter> ().mesh = this.terrain;}		//set the mesh
 
 	
@@ -168,7 +195,8 @@ public class planettest : MonoBehaviour {
 		this.tilesize = worldsize / hashes;
 		this.halftile = tilesize / 2f;
 		this.groundsize	= this.groundradius * 2 +1;
-		this.groundGrid = new GameObject[groundsize,groundsize];}
+		this.groundGrid = new GameObject[groundsize,groundsize];
+		this.meshGrid = new Mesh[groundsize,groundsize];}
 	
 	
 	
