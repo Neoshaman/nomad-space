@@ -87,68 +87,16 @@ public class planettest : MonoBehaviour {
 		playerRelativeToPlanetPosition = this.player.transform.position - this.gameObject.transform.position;
 		playerSurfacePosition = playerRelativeToPlanetPosition.normalized;}
 			
-	void OffsetTile(){
-		Vector3 offset = this.terrainTile.transform.position - this.gameObject.transform.position;
-		Vector3[] Varray = new Vector3[this.terrain.vertices.Length];//temp array to iterate
-		Vector3[] mvert = this.terrain.vertices;					;//temp vertice array to read
-		for (int i = 0; this.terrain.vertices.Length > i; i++){			//loop all vertices
-			Varray[i] = MeshGenerator.SQRspherized(mvert[i]+offset )-offset;//project on sphere
-		}
-		this.terrain.vertices = Varray;}
-		
-	void Offsetgrid(){
-		for (int i = 0; i< this.groundGrid.Length;i++){
-			int ax = i%groundsize;
-			int ay = i/groundsize;
-			
-			Vector3 offset = this.groundGrid[ax,ay].transform.position - this.gameObject.transform.position;
-			Debug.Log( this.gameObject.transform.position );
-			
-			Vector3[] Varray = new Vector3[this.meshGrid[ax,ay].vertices.Length];//temp array to iterate
-			Vector3[] mvert = this.meshGrid[ax,ay].vertices;					;//temp vertice array to read
-			for (int iv = 0; this.meshGrid[ax,ay].vertices.Length > iv; iv++){			//loop all vertices
-				Varray[iv] = MeshGenerator.SQRspherized(mvert[iv]+offset )-offset;//project on sphere
-			}
-			this.meshGrid[ax,ay].vertices = Varray;}} 
-		
 	void FindSurfacePosition(){
 		this.terrainPosition = HashSpherePosition(playerSurfacePosition);
 		this.terrainFacing = MeshGenerator.findCubeFace(this.terrainPosition);		
 		this.terrainTile.transform.position = this.terrainPosition;}
-		
-	void updateTerrainPosition(){
-		for (int i = 0; i<this.groundsize*groundsize  ;i++){
-			int ax = i%groundsize;
-			int ay = i/groundsize;
-			Vector3 Newposition = this.groundGrid[ay,ax].transform.position;
-			Newposition.x =  terrainTile.transform.position.x + ((float)ax-groundradius)/this.hashes;
-			Newposition.y =  terrainTile.transform.position.y + ((float)ay-groundradius)/this.hashes;
-			this.groundGrid[ay,ax].transform.position = Newposition;}}
-			
+				
 	void initTile(){
 		for (int i = 0; i<groundsize*groundsize  ;i++){
 			int ax = i%groundsize;
 			int ay = i/groundsize;
-			this.groundGrid[ay,ax] = Instantiate(this.terrainTile);
-		}}
-			
-	void updatetile(){
-		for (int i = 0; i< this.groundGrid.Length;i++){
-			int ax = i%groundsize;
-			int ay = i/groundsize;
-			
-			Vector3[] tc = this.meshGrid[ax,ay].vertices;											//cache the vertices of terrain
-			for (int itc = 0; tc.Length > itc ;itc++){										//loop the cache
-				tc[itc] = MeshGenerator.UpdateData(this.terrainFacing,this.Tcache.v[itc]);	//using tcache update the plane
-			}
-			this.meshGrid[ax,ay].vertices = tc;}}
-			
-	void updateGrid(){
-		Vector3[] tc = this.terrain.vertices;											//cache the vertices of terrain
-		for (int itc = 0; tc.Length > itc ;itc++){										//loop the cache
-			tc[itc] = MeshGenerator.UpdateData(this.terrainFacing,this.Tcache.v[itc]);	//using tcache update the plane
-		}
-		this.terrain.vertices = tc;}
+			this.groundGrid[ay,ax] = Instantiate(this.terrainTile);}}
 		
 	void generateTilemesh(){
 		//mesh --> note: generate tcache first, use tcache to create tri and uv, reuse data for each tile
@@ -158,12 +106,61 @@ public class planettest : MonoBehaviour {
 			int ax = i%groundsize;
 			int ay = i/groundsize;
 			this.meshGrid[ax,ay] = MeshGenerator.createPlane(Vector3.zero,true, this.terrainFacing,this.tilesize,this.hashes*2);
-			this.groundGrid[ax,ay].gameObject.GetComponent<MeshFilter> ().mesh =  this.meshGrid[ax,ay];}	}
+			this.groundGrid[ax,ay].gameObject.GetComponent<MeshFilter> ().mesh =  this.meshGrid[ax,ay];}}
 	
+	void updateTerrainPosition(){
+		for (int i = 0; i<this.groundGrid.Length;i++){
+			int ax = i%groundsize;
+			int ay = i/groundsize;
+			Vector2 Newposition;
+			Vector2 tpos;
+			tpos = GroundPlane(this.terrainFacing,terrainTile.transform.position);
+			Newposition.x = tpos.x + ((float)ax-groundradius)/this.hashes;
+			Newposition.y = tpos.y + ((float)ay-groundradius)/this.hashes;
+			Vector3 facePosition = PlaneToCubeFace(this.terrainFacing,Newposition);
+			this.groundGrid[ay,ax].transform.position = facePosition;}}
+			
+	void updatetile(){
+		for (int i = 0; i< this.groundGrid.Length;i++){
+			int ax = i%groundsize;
+			int ay = i/groundsize;
+			Vector3[] tc = this.meshGrid[ax,ay].vertices;									//cache the vertices of terrain
+			for (int itc = 0; tc.Length > itc ;itc++){										//loop the cache
+				tc[itc] = MeshGenerator.UpdateData(this.terrainFacing,this.Tcache.v[itc]);}	//using tcache update the plane
+			this.meshGrid[ax,ay].vertices = tc;}}
+			
+	void updateGrid(){
+		Vector3[] tc = this.terrain.vertices;											//cache the vertices of terrain
+		for (int itc = 0; tc.Length > itc ;itc++){										//loop the cache
+			tc[itc] = MeshGenerator.UpdateData(this.terrainFacing,this.Tcache.v[itc]);}	//using tcache update the plane
+		this.terrain.vertices = tc;}
+		
+	void OffsetTile(){
+		Vector3 offset = this.terrainTile.transform.position - this.gameObject.transform.position;
+		Vector3[] Varray = new Vector3[this.terrain.vertices.Length];		//temp array to iterate
+		Vector3[] mvert = this.terrain.vertices;					;		//temp vertice array to read
+		for (int i = 0; this.terrain.vertices.Length > i; i++){				//loop all vertices
+			Varray[i] = MeshGenerator.SQRspherized(mvert[i]+offset )-offset;}//project on sphere
+		this.terrain.vertices = Varray;}
+		
+	void Offsetgrid(){
+		for (int i = 0; i< this.groundGrid.Length;i++){
+			int ax = i%groundsize;
+			int ay = i/groundsize;
+			Vector3 offset = this.groundGrid[ax,ay].transform.position - this.gameObject.transform.position;
+			Vector3[] Varray = new Vector3[this.meshGrid[ax,ay].vertices.Length];		//temp array to iterate
+			Vector3[] mvert = this.meshGrid[ax,ay].vertices;					;		//temp vertice array to read
+			for (int iv = 0; this.meshGrid[ax,ay].vertices.Length > iv; iv++){			//loop all vertices
+				Varray[iv] = MeshGenerator.SQRspherized(mvert[iv]+offset )-offset;}		//project on sphere
+			this.meshGrid[ax,ay].vertices = Varray;}} 
+		
+	void SetMesh(){
+		MeshGenerator.RefreshMesh(this.terrain);
+		this.terrainTile.GetComponent<MeshFilter> ().mesh = this.terrain;
+	}
 	//_____________________________________________________________________________
 	void CreateProxyPlanet(){
 		this.plane = MeshGenerator.CreateCubeSphere();
-		//this.cubeMesh = MeshGenerator.CreateCubeSphere();
 		MeshGenerator.RefreshMesh (this.plane);
 		this.gameObject.GetComponent<MeshFilter> ().mesh = this.plane;}
 		
@@ -174,9 +171,9 @@ public class planettest : MonoBehaviour {
 		initTile();
 		updateTerrainPosition();
 		//mesh
-		generateTilemesh();//generate tcache
-		OffsetTile();																							//to sphere
-		this.terrainTile.GetComponent<MeshFilter> ().mesh = this.terrain;	}									//set the mesh renderer
+		generateTilemesh();	//generate tcache
+		OffsetTile();		//to sphere
+		SetMesh();}			//set the mesh renderer
 
 	
 	void UpdateTerrain(){
@@ -184,9 +181,9 @@ public class planettest : MonoBehaviour {
 		FindSurfacePosition();
 		updateTerrainPosition();
 		//mesh
-		updatetile();	updateGrid();//use tcache
-		OffsetTile();	Offsetgrid();														//to sphere
-		this.terrainTile.GetComponent<MeshFilter> ().mesh = this.terrain;}		//set the mesh
+		updatetile();	updateGrid();	//use tcache
+		OffsetTile();	Offsetgrid();	//to sphere
+		SetMesh();}						//set the mesh
 
 	
 	void InitData(){
@@ -236,8 +233,8 @@ public class planettest : MonoBehaviour {
 	}
 	
 	Vector3 PlaneToCubeFace(MeshGenerator.axis a, Vector2 plane){
-		if (a == MeshGenerator.axis.front ) return new Vector3(plane.x,plane.y, 1);
-		if (a == MeshGenerator.axis.back  ) return new Vector3(plane.x,plane.y,-1);
+		if (a == MeshGenerator.axis.front ) return new Vector3(plane.x,plane.y,-1);
+		if (a == MeshGenerator.axis.back  ) return new Vector3(plane.x,plane.y, 1);
 		if (a == MeshGenerator.axis.top   ) return new Vector3(plane.x, 1,plane.y);
 		if (a == MeshGenerator.axis.bottom) return new Vector3(plane.x,-1,plane.y);
 		if (a == MeshGenerator.axis.side2 ) return new Vector3(-1,plane.x,plane.y);
