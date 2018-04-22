@@ -1,4 +1,4 @@
-﻿using System.Collections;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -71,10 +71,12 @@ public class planettest : MonoBehaviour {
 	
 	public GameObject terrainTile;
 	public GameObject player;
+	//-->> add a this.planet = this.gameobject as init, for code clarity
+	GameObject Planet;
 	
-	GameObject[,] groundGrid;
-	Mesh[,] meshGrid;
-	
+	//GameObject[,] groundGrid;
+	//Mesh[,] meshGrid;
+	tile[,] TileGrid;
 	
 	public Vector3 playerRelativeToPlanetPosition;
 	public Vector3 playerSurfacePosition;
@@ -83,76 +85,96 @@ public class planettest : MonoBehaviour {
 	
 	
 	//_____________________________________________________________________________
-	void GetPlayerPosition(){
-		playerRelativeToPlanetPosition = this.player.transform.position - this.gameObject.transform.position;
+	void GetPlayerPosition(){//get player position relative to the planet surface 
+		playerRelativeToPlanetPosition = this.player.transform.position - this.Planet.gameObject.transform.position;
 		playerSurfacePosition = playerRelativeToPlanetPosition.normalized;}
 			
-	void FindSurfacePosition(){
+	void FindSurfacePosition(){//the position of terrain, given to "test tile"->>> text tile should be "center pos"
 		this.terrainPosition = HashSpherePosition(playerSurfacePosition);
-		this.terrainFacing = MeshGenerator.findCubeFace(this.terrainPosition);		
-		this.terrainTile.transform.position = this.terrainPosition;}
+		this.terrainTile.transform.position = this.terrainPosition;
+		this.terrainFacing = MeshGenerator.findCubeFace(this.terrainPosition);}
 				
-	void initTile(){
+	void initTile(){//put tileobj in grid
 		for (int i = 0; i<groundsize*groundsize  ;i++){
 			int ax = i%groundsize;
 			int ay = i/groundsize;
-			this.groundGrid[ay,ax] = Instantiate(this.terrainTile);}}
-		
-	void generateTilemesh(){
+			
+			this.TileGrid[ay,ax] = new tile();
+			this.TileGrid[ay,ax].mesh = new Mesh();
+			this.TileGrid[ay,ax].obj = Instantiate(this.terrainTile);}}
+			
+	void updateTerrainPosition(){//find position of each tile relative to hash and test position
+		for (int i = 0; i<this.TileGrid.Length;i++){
+			int ax = i%groundsize;
+			int ay = i/groundsize;
+			
+			Vector2 Newposition;
+			Vector2 tpos;
+			
+			tpos = GroundPlane(this.terrainFacing,terrainTile.transform.position);//flatten position to 2d around test tile
+			
+			//2d position of the tile
+			Newposition.x = tpos.x + ((float)ax-groundradius)/this.hashes;
+			Newposition.y = tpos.y + ((float)ay-groundradius)/this.hashes;
+			
+			//->>add check for bound cross and update terrain facing <<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+			//tile = position3d, position2d, face, disable, mesh, depth? child?
+			checkBound(Newposition);
+			
+			//find tile 3d pos according to facing
+			Vector3 facePosition = PlaneToCubeFace(this.terrainFacing,Newposition);
+			this.TileGrid[ay,ax].obj.transform.position = facePosition;}}
+			
+			
+			
+			
+	void generateTilemesh(){//put mesh and tile object inside the grid
 		//mesh --> note: generate tcache first, use tcache to create tri and uv, reuse data for each tile
 		this.Tcache = MeshGenerator.CreateTerrainCache(true,this.tilesize,this.hashes*2);						//create a cache of plane position
 		this.terrain = MeshGenerator.createPlane(Vector3.zero,true, this.terrainFacing,this.tilesize,this.hashes*2); //generate mesh plane put it in member mesh
-		for (int  i = 0 ; i< this.groundGrid.Length;i++){
+		for (int  i = 0 ; i< this.TileGrid.Length;i++){
 			int ax = i%groundsize;
 			int ay = i/groundsize;
-			this.meshGrid[ax,ay] = MeshGenerator.createPlane(Vector3.zero,true, this.terrainFacing,this.tilesize,this.hashes*2);
-			this.groundGrid[ax,ay].gameObject.GetComponent<MeshFilter> ().mesh =  this.meshGrid[ax,ay];}}
+			//->>add check for bound cross and update terrain facing <<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+			this.TileGrid[ax,ay].mesh = MeshGenerator.createPlane(Vector3.zero,true, this.terrainFacing,this.tilesize,this.hashes*2);
+			this.TileGrid[ax,ay].obj.gameObject.GetComponent<MeshFilter> ().mesh =  this.TileGrid[ax,ay].mesh;}}
 	
-	void updateTerrainPosition(){
-		for (int i = 0; i<this.groundGrid.Length;i++){
+	void updatetile(){//for each mesh in grid update and adapt the vertices to the facing
+		for (int i = 0; i< this.TileGrid.Length;i++){
 			int ax = i%groundsize;
 			int ay = i/groundsize;
-			Vector2 Newposition;
-			Vector2 tpos;
-			tpos = GroundPlane(this.terrainFacing,terrainTile.transform.position);
-			Newposition.x = tpos.x + ((float)ax-groundradius)/this.hashes;
-			Newposition.y = tpos.y + ((float)ay-groundradius)/this.hashes;
-			Vector3 facePosition = PlaneToCubeFace(this.terrainFacing,Newposition);
-			this.groundGrid[ay,ax].transform.position = facePosition;}}
-			
-	void updatetile(){
-		for (int i = 0; i< this.groundGrid.Length;i++){
-			int ax = i%groundsize;
-			int ay = i/groundsize;
-			Vector3[] tc = this.meshGrid[ax,ay].vertices;									//cache the vertices of terrain
+			//->>add check for bound cross and update terrain facing <<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+			Vector3[] tc = this.TileGrid[ax,ay].mesh.vertices;									//cache the vertices of terrain
 			for (int itc = 0; tc.Length > itc ;itc++){										//loop the cache
 				tc[itc] = MeshGenerator.UpdateData(this.terrainFacing,this.Tcache.v[itc]);}	//using tcache update the plane
-			this.meshGrid[ax,ay].vertices = tc;}}
+			 this.TileGrid[ax,ay].mesh.vertices = tc;}}
 			
-	void updateGrid(){
+	void updateGrid(){//only the original test tile
 		Vector3[] tc = this.terrain.vertices;											//cache the vertices of terrain
 		for (int itc = 0; tc.Length > itc ;itc++){										//loop the cache
 			tc[itc] = MeshGenerator.UpdateData(this.terrainFacing,this.Tcache.v[itc]);}	//using tcache update the plane
 		this.terrain.vertices = tc;}
 		
-	void OffsetTile(){
-		Vector3 offset = this.terrainTile.transform.position - this.gameObject.transform.position;
+		
+		
+	void OffsetTile(){//only the original test tile
+		Vector3 offset = this.terrainTile.transform.position - this.Planet.gameObject.transform.position;
 		Vector3[] Varray = new Vector3[this.terrain.vertices.Length];		//temp array to iterate
 		Vector3[] mvert = this.terrain.vertices;					;		//temp vertice array to read
 		for (int i = 0; this.terrain.vertices.Length > i; i++){				//loop all vertices
 			Varray[i] = MeshGenerator.SQRspherized(mvert[i]+offset )-offset;}//project on sphere
 		this.terrain.vertices = Varray;}
 		
-	void Offsetgrid(){
-		for (int i = 0; i< this.groundGrid.Length;i++){
+	void Offsetgrid(){//for each tileobj in grid, get the position, use position to reonctruct meshvert position in world
+		for (int i = 0; i< this.TileGrid.Length;i++){
 			int ax = i%groundsize;
 			int ay = i/groundsize;
-			Vector3 offset = this.groundGrid[ax,ay].transform.position - this.gameObject.transform.position;
-			Vector3[] Varray = new Vector3[this.meshGrid[ax,ay].vertices.Length];		//temp array to iterate
-			Vector3[] mvert = this.meshGrid[ax,ay].vertices;					;		//temp vertice array to read
-			for (int iv = 0; this.meshGrid[ax,ay].vertices.Length > iv; iv++){			//loop all vertices
+			Vector3 offset = this.TileGrid[ax,ay].obj.transform.position - this.Planet.gameObject.transform.position;
+			Vector3[] Varray = new Vector3[ this.TileGrid[ax,ay].mesh.vertices.Length];		//temp array to iterate
+			Vector3[] mvert = this.TileGrid[ax,ay].mesh.vertices;//unnecessary?		;		//temp vertice array to read
+			for (int iv = 0; this.TileGrid[ax,ay].mesh.vertices.Length > iv; iv++){			//loop all vertices
 				Varray[iv] = MeshGenerator.SQRspherized(mvert[iv]+offset )-offset;}		//project on sphere
-			this.meshGrid[ax,ay].vertices = Varray;}} 
+			 this.TileGrid[ax,ay].mesh.vertices = Varray;}} 
 		
 	void SetMesh(){
 		MeshGenerator.RefreshMesh(this.terrain);
@@ -162,7 +184,7 @@ public class planettest : MonoBehaviour {
 	void CreateProxyPlanet(){
 		this.plane = MeshGenerator.CreateCubeSphere();
 		MeshGenerator.RefreshMesh (this.plane);
-		this.gameObject.GetComponent<MeshFilter> ().mesh = this.plane;}
+		this.Planet.gameObject.GetComponent<MeshFilter> ().mesh = this.plane;}
 		
 		
 	void GenerateTile(){
@@ -181,19 +203,31 @@ public class planettest : MonoBehaviour {
 		FindSurfacePosition();
 		updateTerrainPosition();
 		//mesh
-		updatetile();	updateGrid();	//use tcache
-		OffsetTile();	Offsetgrid();	//to sphere
+		updatetile();	//updateGrid();	//use tcache
+		//OffsetTile();	
+		Offsetgrid();	//to sphere
 		SetMesh();}						//set the mesh
 
 	
 	void InitData(){
+		this.Planet = this.gameObject;
 		this.hashes = 5;
 		this.worldsize = 1f;//radius
 		this.tilesize = worldsize / hashes;
 		this.halftile = tilesize / 2f;
 		this.groundsize	= this.groundradius * 2 +1;
-		this.groundGrid = new GameObject[groundsize,groundsize];
-		this.meshGrid = new Mesh[groundsize,groundsize];}
+		
+		//this.groundGrid = new GameObject[groundsize,groundsize];
+		//this.meshGrid = new Mesh[groundsize,groundsize];
+		
+		this.TileGrid = new tile[groundsize,groundsize];
+		//for( int i=0;i<this.TileGrid.Length;i++ )
+		//{
+		//	t.mesh = new Mesh();
+		//	t.obj = new GameObject();
+		//}
+	
+	}
 	
 	
 	
@@ -253,7 +287,37 @@ public class planettest : MonoBehaviour {
 	//	this.cubeMesh.vertices = arrayVertices;
 	//	MeshGenerator.RefreshMesh (this.cubeMesh);}
 		
+	class tile{
+		//tile array (tcache)
+		//object tile
+		//position
+		//facing
+		//disable
+		//mesh
+		//Vector3 position;
+		public GameObject obj;
+		public Mesh mesh;
+
+		public MeshGenerator.axis facing;
+		public bool isdisable;
+	}
+	
 		
+		
+	void checkBound(Vector2 pos){
+		//float groundsize	= (float)this.groundradius * 2 +1;
+		//1 -> size of the face
+		bool left   = pos.x >  1;// groundsize;
+		bool right  = pos.x < -1;//groundsize;// < 0;
+		bool up     = pos.y >  1;//groundsize;
+		bool bottom = pos.y < -1;//groundsize;// < 0;
+	
+		//if left or right AND bottom or up then disable else find next face
+		string debugtext = (left || right) && (up || bottom) ? "discard" : "keep";
+		Debug.Log( "  left  "+ left + " - right " + right + " - up " + up + " -bottom " + bottom + "  :  " + debugtext);
+		//Debug.Log(groundsize + " // " +pos.x + "," + pos.y);
+		
+	}
 		
 		
 		
@@ -345,19 +409,6 @@ public class planettest : MonoBehaviour {
 		tiletest.ReadGrid();
 	}
 		
-	class tile{
-	//tile array (tcache)
-		//object tile
-		//position
-		//facing
-		//disable
-		//mesh
-		Vector3 position;
-		MeshGenerator.axis facing;
-		bool isdisable;
-		Mesh mesh;
-	}
-	
 	class circular2dArray{
 		public int[,] grid;
 		
