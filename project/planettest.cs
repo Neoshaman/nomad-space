@@ -97,7 +97,8 @@ public class planettest : MonoBehaviour {
 			int ay = i/groundsize;
 			this.TileGrid[ax,ay] = new tile();
 			this.TileGrid[ax,ay].mesh = new Mesh();
-			this.TileGrid[ax,ay].obj = Instantiate(this.terrainCenter);}}
+			this.TileGrid[ax,ay].obj = Instantiate(this.terrainCenter);
+			this.TileGrid[ax,ay].obj.name = "tile n "+i.ToString();}}
 			
 	void updateTerrainPosition(){//find position of each tile relative to hash and "center" position
 		for (int i = 0; i<this.TileGrid.Length;i++){
@@ -344,79 +345,64 @@ public class planettest : MonoBehaviour {
 	
 		
 		
-	Vector2 checkBound(Vector2 pos, tile t){//should return new facing and 2d position on new face
-		//float groundsize	= (float)this.groundradius * 2 +1;
+	Vector2 checkBound(Vector2 pos, tile t){
 		//1 -> size of the face
-		bool top	= pos.x >  1;// groundsize;
-		bool bottom	= pos.x < -1;//groundsize;// < 0;
-		bool right	= pos.y >  1;//groundsize;
-		bool left	= pos.y < -1;//groundsize;// < 0;
-		
+		bool top	= pos.x >  1;
+		bool bottom	= pos.x < -1;
+		bool right	= pos.y >  1;
+		bool left	= pos.y < -1;
 		t.isdisable = (left || right) && (top || bottom);
-		t.facing =findNextFace(left, right, top, bottom);
-		
-		//if left or right AND bottom or up then disable else find next face
-		string debugtext =  t.isdisable ? "discard" : "keep";
-		//Debug.Log(this.terrainFacing + "  left  "+ left + " - right " + right + " - top " + top + " -bottom " + bottom + "  :  " + debugtext);
-		//Debug.Log(groundsize + " // " +pos.x + "," + pos.y);
-		
-		if (t.facing != this.terrainFacing){
-			pos.x = 1 - pos.x % 1;
-			pos.y = 1 - pos.y % 1;
-			Debug.Log(pos.x + "," + pos.y + " ** " + t.isdisable + " ** terrain: " + this.terrainFacing  + " !! tile: " + t.facing);
-		}
-		return pos;
-	}
-		
-	MeshGenerator.axis findNextFace(bool left, bool right, bool top, bool bottom){   
 		
 		MeshGenerator.axis Newface = this.terrainFacing;
+		Vector2 neo = pos;
 
 		if(left || right || top || bottom){
 			switch(this.terrainFacing){
-				case MeshGenerator.axis.front :
-					if (left)  {Newface = MeshGenerator.axis.side2; }
-					if (right) {Newface = MeshGenerator.axis.side1; }
-					if (top)   {Newface = MeshGenerator.axis.top;   }
-					if (bottom){Newface = MeshGenerator.axis.bottom;}
-					break;
+			case MeshGenerator.axis.front ://XY: top = x+	right = y+
+				if (left)  {Newface = MeshGenerator.axis.bottom; 	neo.x =		pos.x % 1;		neo.y =-1-	pos.y % 1;	}
+				if (right) {Newface = MeshGenerator.axis.top; 		neo.x =		pos.x % 1;		neo.y =-1+	pos.y % 1;	}
+				if (top)   {Newface = MeshGenerator.axis.side1;   	neo.y =-1+	pos.x % 1;		neo.x =		pos.y % 1;	}
+				if (bottom){Newface = MeshGenerator.axis.side2;		neo.y =-1-	pos.x % 1;		neo.x =		pos.y % 1;	}
+				break;
+			case MeshGenerator.axis.back ://XY: top = x+	right = y+
+				if (left)  {Newface = MeshGenerator.axis.bottom; 	neo.x =		pos.x % 1;		neo.y = 1+	pos.y % 1;	}
+				if (right) {Newface = MeshGenerator.axis.top; 		neo.x =		pos.x % 1;		neo.y = 1-	pos.y % 1;	}
+				if (top)   {Newface = MeshGenerator.axis.side1;   	neo.y =1-	pos.x % 1;		neo.x =		pos.y % 1;	}
+				if (bottom){Newface = MeshGenerator.axis.side2;		neo.y =1+	pos.x % 1;		neo.x =		pos.y % 1;	}
+				break;
+			case MeshGenerator.axis.side1 ://YZ: top = y+	right = z+
+				if (left)  {Newface = MeshGenerator.axis.front; 	neo.y =		pos.x % 1;		neo.x = 1+	pos.y % 1;	}
+				if (right) {Newface = MeshGenerator.axis.back;  	neo.y =		pos.x % 1;		neo.x = 1-	pos.y % 1;	}
+				if (top)   {Newface = MeshGenerator.axis.top;   	neo.x =	1-	pos.x % 1;		neo.y =		pos.y % 1;	}
+				if (bottom){Newface = MeshGenerator.axis.bottom;	neo.x = 1+	pos.x % 1;		neo.y =		pos.y % 1;	}
+				break;
+			case MeshGenerator.axis.side2 ://YZ: top = y+	right = z+
+				if (left)  {Newface = MeshGenerator.axis.front;  	neo.y =		pos.x % 1;		neo.x = -1-	pos.y % 1;	}
+				if (right) {Newface = MeshGenerator.axis.back;		neo.y =		pos.x % 1;		neo.x =	-1+	pos.y % 1;	}
+				if (top)   {Newface = MeshGenerator.axis.top;   	neo.x =-1+	pos.x % 1;		neo.y =		pos.y % 1;	}
+				if (bottom){Newface = MeshGenerator.axis.bottom;	neo.x =-1-	pos.x % 1;		neo.y =		pos.y % 1;	}
+				break;
+			case	MeshGenerator.axis.top ://XZ: top = x+	right = z+
+				if (left)  {Newface = MeshGenerator.axis.front;		neo.x =		pos.x % 1;		neo.y = 1+	pos.y % 1;	}
+				if (right) {Newface = MeshGenerator.axis.back;		neo.x =		pos.x % 1;		neo.y = 1-	pos.y % 1;	}
+				if (top)   {Newface = MeshGenerator.axis.side1;		neo.x =	1-	pos.x % 1;		neo.y =		pos.y % 1;	}
+				if (bottom){Newface = MeshGenerator.axis.side2;		neo.x = 1+	pos.x % 1;		neo.y =		pos.y % 1;	}
+				break;
+			case MeshGenerator.axis.bottom ://XZ: top = x+	right = z+
+				if (left)  {Newface = MeshGenerator.axis.front;		neo.x =		pos.x % 1;		neo.y =-1-	pos.y % 1;	}
+				if (right) {Newface = MeshGenerator.axis.back;		neo.x =		pos.x % 1;		neo.y =-1+	pos.y % 1;	}
+				if (top)   {Newface = MeshGenerator.axis.side1;		neo.x =-1+	pos.x % 1;		neo.y =		pos.y % 1;	}
+				if (bottom){Newface = MeshGenerator.axis.side2;		neo.x =-1-	pos.x % 1;		neo.y =		pos.y % 1;	}
+				break;}}
 				
-				case MeshGenerator.axis.back :
-					if (left)  {Newface = MeshGenerator.axis.side1; }
-					if (right) {Newface = MeshGenerator.axis.side2; }
-					if (top)   {Newface = MeshGenerator.axis.top;   }
-					if (bottom){Newface = MeshGenerator.axis.bottom;}
-					break;
-					
-				case MeshGenerator.axis.side1 :
-					if (left)  {Newface = MeshGenerator.axis.front; }
-					if (right) {Newface = MeshGenerator.axis.back;  }
-					if (top)   {Newface = MeshGenerator.axis.top;   }
-					if (bottom){Newface = MeshGenerator.axis.bottom;}
-					break;
-					
-				case MeshGenerator.axis.side2 :
-					if (left)  {Newface = MeshGenerator.axis.back;  }
-					if (right) {Newface = MeshGenerator.axis.front; }
-					if (top)   {Newface = MeshGenerator.axis.top;   }
-					if (bottom){Newface = MeshGenerator.axis.bottom;}
-					break;
-					
-				case	MeshGenerator.axis.top :
-					if (left)  {Newface = MeshGenerator.axis.front;}
-					if (right) {Newface = MeshGenerator.axis.back; }
-					if (top)   {Newface = MeshGenerator.axis.side1;}
-					if (bottom){Newface = MeshGenerator.axis.side2;}
-					break;
-					
-				case MeshGenerator.axis.bottom :
-					if (left)  {Newface = MeshGenerator.axis.front;}
-					if (right) {Newface = MeshGenerator.axis.back; }
-					if (top)   {Newface = MeshGenerator.axis.side1;}
-					if (bottom){Newface = MeshGenerator.axis.side2;}
-					break;}}
+		t.facing = Newface;
 		
-		return Newface;}
+		//string debugtext =  t.isdisable ? "discard" : "keep";
+		//Debug.Log(this.terrainFacing + "  left  "+ left + " - right " + right + " - top " + top + " -bottom " + bottom + "  :  " + debugtext);
+		//Debug.Log(groundsize + " // " +neo.x + "," + neo.y);
+		
+		return neo;
+	}
 		
 		
 		
