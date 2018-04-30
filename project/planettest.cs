@@ -1,4 +1,4 @@
-using System.Collections;
+﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -104,60 +104,44 @@ public class planettest : MonoBehaviour {
 		for (int i = 0; i<this.TileGrid.Length;i++){
 			int ax = i%groundsize;
 			int ay = i/groundsize;
-			Vector2 Newposition;
-			Vector2 tpos;
+			Vector2 Newposition, tpos;
 			tpos = GroundPlane(this.terrainFacing,terrainCenter.transform.position);//flatten position to 2d around "center" tile
-			//2d position of the tile
+			//2d position of the tile on the current face
 			Newposition.x = tpos.x + ((float)ax-groundradius)/this.hashes;
 			Newposition.y = tpos.y + ((float)ay-groundradius)/this.hashes;
-			
-			//->>add check for bound cross and update terrain facing <<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-			//tile = position3d, position2d, face, disable, mesh, depth? child?
-			Newposition = checkBound(Newposition,this.TileGrid[ay,ax]);
-			
-			//find tile 3d pos according to facing
-			this.TileGrid[ax,ay].obj.transform.position = PlaneToCubeFace(this.TileGrid[ay,ax].facing,Newposition);//<-- facing is to update - position to new face
-			}}
+			//boundary crossing to affect to the right face
+			Newposition = checkBound(Newposition,this.TileGrid[ax,ay]);
+			//find tile 3d unit cube pos according to facing
+			this.TileGrid[ax,ay].obj.transform.position = PlaneToCubeFace(this.TileGrid[ax,ay].facing,Newposition);}}
 			
 			
 			
 			
 	void generateTilemesh(){//put mesh and tile object inside the grid
-		
-		//mesh --> note: generate tcache first, use tcache to create tri and uv, reuse data for each tile
-		this.Tcache = CreateTerrainCache(true,this.tilesize,this.hashes*2);						//create a cache of plane position
-
+		this.Tcache = CreateTerrainCache(true,this.tilesize,this.hashes*2);//cache 2d plane position
 		for (int  i = 0 ; i< this.TileGrid.Length;i++){
 			int ax = i%groundsize;
 			int ay = i/groundsize;
-			
-			if(this.TileGrid[ax,ay].isdisable){continue;}//if disable, set renderer to false and skip that part
-
-			this.TileGrid[ax,ay].mesh = MeshGenerator.createPlane(Vector3.zero,true, this.TileGrid[ay,ax].facing,this.tilesize,this.hashes*2);
-			this.TileGrid[ax,ay].obj.gameObject.GetComponent<MeshFilter> ().mesh =  this.TileGrid[ax,ay].mesh;}}
+			this.TileGrid[ax,ay].mesh = MeshGenerator.createPlane(Vector3.zero,true, this.TileGrid[ax,ay].facing,this.tilesize,this.hashes*2);
+			this.TileGrid[ax,ay].obj.gameObject.GetComponent<MeshFilter> ().mesh =  this.TileGrid[ax,ay].mesh;}}//reference the mesh, don't hold it
 	
-	void updatetile(){//for each mesh in grid update and adapt the vertices to the facing
+	void updatetile(){//for each mesh in grid, update the vertices to the facing
 		for (int i = 0; i< this.TileGrid.Length;i++){
 			int ax = i%groundsize;
 			int ay = i/groundsize;
-			
-			this.TileGrid[ax,ay].obj.SetActive(true);
-			if(this.TileGrid[ax,ay].isdisable){this.TileGrid[ax,ay].obj.SetActive(false);continue;}//if disable, set renderer to false and skip that part
-
+			this.TileGrid[ax,ay].obj.SetActive(true); if(this.TileGrid[ax,ay].isdisable){this.TileGrid[ax,ay].obj.SetActive(false);continue;}
 			//reset the vertices to plane using the cache
 			Vector3[] tc = this.TileGrid[ax,ay].mesh.vertices;								//cache the vertices of terrain
 			for (int itc = 0; tc.Length > itc ;itc++){										//loop the cache
-				tc[itc] = UpdateTerrainData(this.TileGrid[ay,ax].facing,this.Tcache[itc]);}	//using tcache update the plane
+				tc[itc] = UpdateTerrainData(this.TileGrid[ax,ay].facing,this.Tcache[itc]);}	//using tcache update the plane
 			//set the reseted position back to mesh	
 			this.TileGrid[ax,ay].mesh.vertices = tc;}}
 		
-	void Offsetgrid(){//for each tileobj in grid, get the position, use position to reonctruct meshvert position in world
+	void Offsetgrid(){//for each tileobj in grid, project to sphere in 3d coordinate
 		for (int i = 0; i< this.TileGrid.Length;i++){
 			int ax = i%groundsize;
 			int ay = i/groundsize;
-			
-			if(this.TileGrid[ax,ay].isdisable){continue;}//if disable, set renderer to false and skip that part
-			
+			if(this.TileGrid[ax,ay].isdisable){continue;}
 			//set mesh to position on cube (using object position)
 			Vector3 offset = this.TileGrid[ax,ay].obj.transform.position - this.Planet.transform.position;
 			//project all vertices on sphere
@@ -166,7 +150,7 @@ public class planettest : MonoBehaviour {
 			for (int iv = 0; this.TileGrid[ax,ay].mesh.vertices.Length > iv; iv++){			//loop all vertices
 				Varray[iv] = MeshGenerator.SQRspherized(mvert[iv]+offset )-offset;}			//project on sphere
 			this.TileGrid[ax,ay].mesh.vertices = Varray;
-			
+			//rebuild proper data for the mesh, like normal and all
 			MeshGenerator.RefreshMesh(this.TileGrid[ax,ay].mesh);}} 
 		
 	//_____________________________________________________________________________
@@ -203,7 +187,6 @@ public class planettest : MonoBehaviour {
 		this.tilesize = worldsize / hashes;
 		this.halftile = tilesize / 2f;
 		this.groundsize	= this.groundradius * 2 +1;
-		
 		this.TileGrid = new tile[groundsize,groundsize];}
 	
 	
@@ -397,8 +380,9 @@ public class planettest : MonoBehaviour {
 				
 		t.facing = Newface;
 		
-		//string debugtext =  t.isdisable ? "discard" : "keep";
-		//Debug.Log(this.terrainFacing + "  left  "+ left + " - right " + right + " - top " + top + " -bottom " + bottom + "  :  " + debugtext);
+		string debugtext =  t.isdisable ? "discard" : "keep";
+		//if (t.isdisable)
+		Debug.Log(t.obj.name+ ": " + pos.ToString() + " > " + neo.ToString()+ " ...  " + t.facing + " / " + this.terrainFacing + "  left  "+ left + " - right " + right + " - top " + top + " -bottom " + bottom + "  :  " + debugtext);
 		//Debug.Log(groundsize + " // " +neo.x + "," + neo.y);
 		
 		return neo;
